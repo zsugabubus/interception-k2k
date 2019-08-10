@@ -1,0 +1,2 @@
+{ .tap_key = KEY_ESC, .hold_key = KEY_LEFTCTRL },
+{ .tap_key = KEY_SPACE, .hold_key = KEY_LEFTMETA },

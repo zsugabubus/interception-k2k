@@ -1,0 +1,1 @@
+{ .from_key = KEY_CAPSLOCK, .to_key = KEY_ESC },
