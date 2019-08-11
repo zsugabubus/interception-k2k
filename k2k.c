@@ -100,8 +100,10 @@ static struct toggle_rule_info {
 };
 
 static struct tap_rule_info {
+    int const base_key;
     int const tap_key;
     int const hold_key;
+    int const repeat_key;
     int act_key;
 } TAP_RULES[] = {
 #include "tap-rules.h.in"
@@ -113,11 +115,10 @@ main(void) {
 
     while (input_event_wait(&ev)) {
         size_t i;
-        int skip_write = 0;
 
         if (ev.type != EV_KEY) {
             if (ev.type == EV_MSC && ev.code == MSC_SCAN)
-                goto skip_write;
+                goto ignore_event;
 
             goto write;
         }
@@ -133,33 +134,44 @@ main(void) {
         for (i = 0; i < ARRAY_LEN(TAP_RULES); ++i) {
             struct tap_rule_info *const v = &TAP_RULES[i];
 
-            if (ev.code == v->tap_key) {
+            if (ev.code == v->base_key) {
                 switch (ev.value) {
                 case EVENT_VALUE_KEYDOWN:
                     if (v->act_key == KEY_RESERVED) {
-                        dbgprintf("Tap rule #%zu: Waiting.\n", i);
-                        v->act_key = v->tap_key;
-                case EVENT_VALUE_KEYREPEAT:
-                        goto skip_write;
+                        dbgprintf("Tap rule #%zu: Ignore: Waiting.\n", i);
+                        v->act_key = -1;
                     }
+                    goto ignore_event;
+                case EVENT_VALUE_KEYREPEAT:
+                    if (v->act_key == -1) {
+                        /* Do not repeat this key. */
+                        if (v->repeat_key == KEY_RESERVED)
+                            goto ignore_event;
+
+                        v->act_key = v->repeat_key;
+                        dbgprintf("Tap rule #%zu: Act as repeat key.\n", i);
+                        write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
+                    }
+
+                    ev.code = v->act_key;
                     break;
                 case EVENT_VALUE_KEYUP:
-                    if (v->act_key == v->tap_key) {
+                    if (v->act_key == -1) {
+                        v->act_key = v->tap_key;
                         dbgprintf("Tap rule #%zu: Act as tap key.\n", i);
                         write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
                     ev.code = v->act_key;
+
                     v->act_key = KEY_RESERVED;
                     break;
                 }
-            } else {
-                if (ev.value != EVENT_VALUE_KEYUP && !key_ismod(ev.code)) {
-                    /* Key `hold_key` needs to be hold down now. */
-                    if (v->act_key == v->tap_key) {
-                        dbgprintf("Tap rule #%zu: Act as hold key.\n", i);
-                        v->act_key = v->hold_key;
-                        write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
-                    }
+            } else if (v->act_key == -1) {
+                /* Key `hold_key` needs to be hold down now. */
+                if (ev.value == EVENT_VALUE_KEYDOWN && !key_ismod(ev.code)) {
+                    v->act_key = v->hold_key;
+                    dbgprintf("Tap rule #%zu: Act as hold key.\n", i);
+                    write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                 }
             }
         }
@@ -167,6 +179,7 @@ main(void) {
         for (i = 0; i < ARRAY_LEN(TOGGLE_RULES); ++i) {
             struct toggle_rule_info *const v = &TOGGLE_RULES[i];
             size_t j, ndown = 0, ntotal = 0;
+            int ignore_event = 0;
 
             for (j = 0; j < ARRAY_LEN(v->keys); ++ntotal, ++j) {
                 if (v->keys[j] == KEY_RESERVED)
@@ -177,13 +190,13 @@ main(void) {
                     case EVENT_VALUE_KEYUP:
                         v->keys_down[j] = 0;
                         if (v->actions[0][0] == ev.code && v->is_down)
-                            skip_write = 1;
+                            ignore_event = 1;
                         break;
                     case EVENT_VALUE_KEYDOWN:
                     case EVENT_VALUE_KEYREPEAT:
                         v->keys_down[j] = 1;
                         if (v->actions[1][1] == ev.code && v->is_down)
-                            skip_write = 1;
+                            ignore_event = 1;
                         break;
                     }
                 }
@@ -220,11 +233,13 @@ main(void) {
             } else if (ndown == 0) {
                 v->ignore_change = 0;
             }
+
+            if (ignore_event)
+                goto ignore_event;
         }
 
     write:
-        if (!skip_write)
-            write_event(&ev);
-    skip_write:;
+        write_event(&ev);
+    ignore_event:;
     }
 }
