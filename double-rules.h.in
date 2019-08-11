@@ -1,3 +1,0 @@
-{ .keys = KEY_PAIR(CTRL), .actions = { { KEY_LEFTCTRL, KEY_RESERVED }, { KEY_RESERVED, KEY_LEFTCTRL } }, .ncancel = 1 },
-{ .keys = KEY_PAIR(META), .actions = { { KEY_LEFTMETA, KEY_RESERVED }, { KEY_RESERVED, KEY_LEFTMETA } }, .ncancel = 1 },
-{ .keys = KEY_PAIR(SHIFT), .actions = { { KEY_CAPSLOCK, KEY_CAPSLOCK }, { KEY_CAPSLOCK, KEY_CAPSLOCK } }, .ncancel = 1 },

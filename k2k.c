@@ -1,28 +1,36 @@
 #define _XOPEN_SOURCE 500
 #ifdef VERBOSE
-#include <stdio.h> /* fprintf() */
+# include <stdio.h> /* fprintf() */
 #endif
 #include <stdlib.h> /* EXIT_FAILURE */
 #include <errno.h> /* errno */
-#include <unistd.h> /* usleep */
+#include <unistd.h> /* STD*_FILENO, read() */
 #include <linux/input.h> /* struct input_event */
 
-#define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
-#define DELAY() usleep(12000);
-#define KEY_PAIR(key) { KEY_LEFT##key, KEY_RIGHT##key }
-
-static char *EVVAL2STR[] = {"up", "down", "repeat"};
-#ifdef VERBOSE
-#define DPRINT(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
-#else
-#define DPRINT(msg, ...) ((void)0)
+#ifndef TOGGLE_RULE_MAXKEYS
+# define TOGGLE_RULE_MAXKEYS 10
 #endif
 
+#define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
+#define KEY_PAIR(key) { KEY_LEFT##key, KEY_RIGHT##key }
+
+#ifdef VERBOSE
+# define dbgprintf(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
+#else
+# define dbgprintf(msg, ...) ((void)0)
+#endif
+
+enum event_values {
+    EVENT_VALUE_KEYUP = 0,
+    EVENT_VALUE_KEYDOWN = 1,
+    EVENT_VALUE_KEYREPEAT = 2,
+};
+
 static int
-input_event_wait(struct input_event *event) {
+input_event_wait(struct input_event *ev) {
     for (;;) {
-        switch (read(STDIN_FILENO, event, sizeof *event)) {
-        case sizeof *event:
+        switch (read(STDIN_FILENO, ev, sizeof *ev)) {
+        case sizeof *ev:
             return 1;
         case -1:
             if (errno == EINTR)
@@ -35,10 +43,10 @@ input_event_wait(struct input_event *event) {
 }
 
 static void
-write_event(struct input_event const*event) {
+write_event(struct input_event const*ev) {
     for (;;) {
-        switch (write(STDOUT_FILENO, event, sizeof *event)) {
-        case sizeof *event:
+        switch (write(STDOUT_FILENO, ev, sizeof *ev)) {
+        case sizeof *ev:
             return;
         case -1:
             if (errno == EINTR)
@@ -51,24 +59,13 @@ write_event(struct input_event const*event) {
 }
 
 static void
-write_sync(void) {
-    struct input_event const event = {
-        .type = EV_SYN,
-        .code = SYN_REPORT,
-        .value = 0
-    };
-    write_event(&event);
-}
-
-static void
 write_key_event(int code, int value) {
-    struct input_event event = {
+    struct input_event ev = {
         .type = EV_KEY,
         .code = code,
         .value = value
     };
-    DPRINT("<<< Key %s: %d.\n", EVVAL2STR[value], code);
-    write_event(&event);
+    write_event(&ev);
 }
 
 static int
@@ -84,22 +81,22 @@ key_ismod(int const keycode) {
     }
 }
 
-static struct single_rule_info {
+static struct translate_rule_info {
     int const from_key;
     int const to_key;
-} SINGLE_RULES[] = {
-#include "single-rules.h.in"
+} TRANSLATE_RULES[] = {
+#include "translate-rules.h.in"
 };
 
-static struct double_rule_info {
-    int const keys[2];
+static struct toggle_rule_info {
+    int const keys[TOGGLE_RULE_MAXKEYS];
     int const actions[2][2];
-    size_t const ncancel;
-    int is_down[2];
-    int locked: 1;
-    int locking: 1;
-} DOUBLE_RULES[] = {
-#include "double-rules.h.in"
+    size_t const ntoggle_down, ntoggle_up;
+    int keys_down[TOGGLE_RULE_MAXKEYS];
+    int is_down: 1;
+    int ignore_change: 1;
+} TOGGLE_RULES[] = {
+#include "toggle-rules.h.in"
 };
 
 static struct tap_rule_info {
@@ -114,24 +111,21 @@ int
 main(void) {
     struct input_event ev;
 
-    (void)EVVAL2STR;
-
     while (input_event_wait(&ev)) {
         size_t i;
         int skip_write = 0;
 
-        if (ev.type == EV_MSC && ev.code == MSC_SCAN)
-            goto skip_write;
+        if (ev.type != EV_KEY) {
+            if (ev.type == EV_MSC && ev.code == MSC_SCAN)
+                goto skip_write;
 
-        if (ev.type != EV_KEY)
             goto write;
+        }
 
-        DPRINT(">>> Key %s: %d.\n", EVVAL2STR[ev.value], ev.code);
-
-        for (i = 0; i < ARRAY_LEN(SINGLE_RULES); ++i) {
-            struct single_rule_info *const v = &SINGLE_RULES[i];
+        for (i = 0; i < ARRAY_LEN(TRANSLATE_RULES); ++i) {
+            struct translate_rule_info *const v = &TRANSLATE_RULES[i];
             if (ev.code == v->from_key) {
-                DPRINT("Translate rule #%zu: Translate key %d -> %d.\n", i, ev.code, v->to_key);
+                dbgprintf("Translate rule #%zu: %d -> %d.\n", i, ev.code, v->to_key);
                 ev.code = v->to_key;
             }
         }
@@ -141,106 +135,96 @@ main(void) {
 
             if (ev.code == v->tap_key) {
                 switch (ev.value) {
-                case 1/*down*/:
+                case EVENT_VALUE_KEYDOWN:
                     if (v->act_key == KEY_RESERVED) {
-                        DPRINT("Tap rule #%zu: Actived.\n", i);
+                        dbgprintf("Tap rule #%zu: Waiting.\n", i);
                         v->act_key = v->tap_key;
-                        /* Wait for further key chords. */
-                case 2/*repeat*/:
+                case EVENT_VALUE_KEYREPEAT:
                         goto skip_write;
                     }
                     break;
-                case 0/*up*/:
+                case EVENT_VALUE_KEYUP:
                     if (v->act_key == v->tap_key) {
-                        DPRINT("Tap rule #%zu: Tap key down.\n", i);
-                        write_key_event(v->act_key, 1/*down*/);
-                        write_sync();
-                        DELAY();
+                        dbgprintf("Tap rule #%zu: Act as tap key.\n", i);
+                        write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
-                    DPRINT("Tap rule #%zu: Translating key up: %d -> %d.\n", i, ev.code, v->act_key);
                     ev.code = v->act_key;
                     v->act_key = KEY_RESERVED;
-                    DPRINT("Tap rule #%zu: Deactivated.\n", i);
                     break;
                 }
             } else {
-                if (ev.value != 0/*up*/ && !key_ismod(ev.code)) {
+                if (ev.value != EVENT_VALUE_KEYUP && !key_ismod(ev.code)) {
                     /* Key `hold_key` needs to be hold down now. */
                     if (v->act_key == v->tap_key) {
-                        DPRINT("Tap rule #%zu: Hold key down.\n", i);
+                        dbgprintf("Tap rule #%zu: Act as hold key.\n", i);
                         v->act_key = v->hold_key;
-                        write_key_event(v->act_key, 1/*down*/);
-                        write_sync();
-                        DELAY();
+                        write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
                 }
             }
         }
 
-        for (i = 0; i < ARRAY_LEN(DOUBLE_RULES); ++i) {
-            struct double_rule_info *const v = &DOUBLE_RULES[i];
-            size_t j;
-            size_t ndown = 0;
+        for (i = 0; i < ARRAY_LEN(TOGGLE_RULES); ++i) {
+            struct toggle_rule_info *const v = &TOGGLE_RULES[i];
+            size_t j, ndown = 0, ntotal = 0;
 
-            for (j = 0; j < ARRAY_LEN(v->keys); ++j) {
+            for (j = 0; j < ARRAY_LEN(v->keys); ++ntotal, ++j) {
+                if (v->keys[j] == KEY_RESERVED)
+                    break;
+
                 if (ev.code == v->keys[j]) {
                     switch (ev.value) {
-                    case 0/*up*/:
-                        v->is_down[j] = 0;
-                        if (v->actions[0][0] == ev.code && v->locked)
+                    case EVENT_VALUE_KEYUP:
+                        v->keys_down[j] = 0;
+                        if (v->actions[0][0] == ev.code && v->is_down)
                             skip_write = 1;
                         break;
-                    case 1/*down*/:
-                    case 2/*repet*/:
-                        v->is_down[j] = 1;
-                        if (v->actions[1][1] == ev.code && v->locked)
+                    case EVENT_VALUE_KEYDOWN:
+                    case EVENT_VALUE_KEYREPEAT:
+                        v->keys_down[j] = 1;
+                        if (v->actions[1][1] == ev.code && v->is_down)
                             skip_write = 1;
                         break;
                     }
                 }
-                ndown += v->is_down[j];
+                ndown += v->keys_down[j];
             }
 
             if (ndown > 0)
-                DPRINT("Lock rule #%zu: %s: %zu down.\n", i, (v->locked ? "Locked" : "Unlocked"), ndown);
+                dbgprintf("Toggle rule #%zu: %zu down%s.\n",
+                        i, ndown,
+                        (v->ignore_change ? ", ignore change" : ""));
 
-            if (!v->locking && ndown == (v->locked ? v->ncancel : ARRAY_LEN(v->keys))) {
-                int const*const keys = v->actions[!v->locked];
-                int delay = 0;
+            if (!v->ignore_change
+                && ndown == (v->is_down
+                    ? (v->ntoggle_up   > 0 ? v->ntoggle_up   : ntotal)
+                    : (v->ntoggle_down > 0 ? v->ntoggle_down : ntotal))) {
+                int const*const keys = v->actions[!v->is_down];
 
-                v->locking = 1, v->locked ^= 1;
-                DPRINT("Lock rule #%zu: %s now.\n", i, (v->locked ? "Locked" : "Unlocked"));
+                v->ignore_change = 1, v->is_down ^= 1;
+                dbgprintf("Toggle rule #%zu: Toggled %s now.\n", i, (v->is_down ? "down" : "up"));
 
-                for (j = 0; j < ARRAY_LEN(v->keys); ++j) {
+                for (j = 0; j < ntotal; ++j) {
                     if (keys[0] == v->keys[j]
                         || keys[1] == v->keys[j]) {
                         goto filtered;
                     }
                 }
 
-                DPRINT("Lock rule #%zu: Key actions.\n", i);
-                if (keys[0] != KEY_RESERVED) {
-                    write_key_event(keys[0], 1/*down*/);
-                    delay = 1;
-                }
+                if (keys[0] != KEY_RESERVED)
+                    write_key_event(keys[0], EVENT_VALUE_KEYDOWN);
 
-                if (keys[1] != KEY_RESERVED) {
-                    if (delay)
-                        DELAY();
-                    write_key_event(keys[1], 0/*up*/);
-                    write_sync();
-                }
+                if (keys[1] != KEY_RESERVED)
+                    write_key_event(keys[1], EVENT_VALUE_KEYUP);
             filtered:;
             } else if (ndown == 0) {
-                v->locking = 0;
+                v->ignore_change = 0;
             }
         }
 
     write:
-        if (!skip_write) {
-            DPRINT("<<< type: %d value: %d code: %d.\n", ev.type, ev.value, ev.code);
+        if (!skip_write)
             write_event(&ev);
-        }
     skip_write:;
     }
 }
