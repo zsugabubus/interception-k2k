@@ -81,30 +81,40 @@ key_ismod(int const keycode) {
     }
 }
 
-static struct translate_rule_info {
-    int const from_key;
-    int const to_key;
-} TRANSLATE_RULES[] = {
-#include "translate-rules.h.in"
+static struct map_rule_info {
+    int const from_key; /** Map what? */
+    int const to_key; /** To what? */
+} MAP_RULES[] = {
+#include "map-rules.h.in"
 };
 
 static struct toggle_rule_info {
-    int const keys[TOGGLE_RULE_MAXKEYS];
-    int const actions[2][2];
-    size_t const ntoggle_down, ntoggle_up;
-    int keys_down[TOGGLE_RULE_MAXKEYS];
-    int is_down: 1;
-    int ignore_change: 1;
+    int const keys[TOGGLE_RULE_MAXKEYS]; /** Keys to watch. */
+    int const actions[2][2]; /** Up & down actinons to take when toggled down
+                               and up. */
+    size_t const ntoggle_down; /** Number of `keys` to press to toggle down.
+                                 Defaults to count of `keys`. */
+    size_t const ntoggle_up; /** Number of `keys` to press to toggle up.
+                               Defaults to count of `keys`. */
+    char keys_down[TOGGLE_RULE_MAXKEYS]; /** Array that keeps counting pressed
+                                           down `keys`. */
+    int is_down: 1; /** Internal toggled state. */
+    int ignore_change: 1; /** Whether to ignore state changings until all
+                            `keys` are up. */
 } TOGGLE_RULES[] = {
 #include "toggle-rules.h.in"
 };
 
 static struct tap_rule_info {
-    int const base_key;
-    int const tap_key;
-    int const hold_key;
-    int const repeat_key;
-    int act_key;
+    int const base_key; /** Key to override. */
+    int const tap_key; /** Act as this key when pressed alone. */
+    int const hold_key; /** Act as this key when pressed with others. */
+    int const repeat_key; /** Act as this key when pressed alone for longer
+                            time. Optional. */
+    int const repeat_delay;/** Wait this much repeat events to arrive after
+                             acting as repeat key. */
+    int act_key; /** How `base_key` acts as actually. */
+    int curr_delay; /** Internal counter for `repeat_delay`. */
 } TAP_RULES[] = {
 #include "tap-rules.h.in"
 };
@@ -123,10 +133,10 @@ main(void) {
             goto write;
         }
 
-        for (i = 0; i < ARRAY_LEN(TRANSLATE_RULES); ++i) {
-            struct translate_rule_info *const v = &TRANSLATE_RULES[i];
+        for (i = 0; i < ARRAY_LEN(MAP_RULES); ++i) {
+            struct map_rule_info *const v = &MAP_RULES[i];
             if (ev.code == v->from_key) {
-                dbgprintf("Translate rule #%zu: %d -> %d.\n", i, ev.code, v->to_key);
+                dbgprintf("Map rule #%zu: %d -> %d.\n", i, ev.code, v->to_key);
                 ev.code = v->to_key;
             }
         }
@@ -140,12 +150,16 @@ main(void) {
                     if (v->act_key == KEY_RESERVED) {
                         dbgprintf("Tap rule #%zu: Ignore: Waiting.\n", i);
                         v->act_key = -1;
+                        v->curr_delay = v->repeat_delay;
                     }
                     goto ignore_event;
                 case EVENT_VALUE_KEYREPEAT:
                     if (v->act_key == -1) {
                         /* Do not repeat this key. */
                         if (v->repeat_key == KEY_RESERVED)
+                            goto ignore_event;
+
+                        if (v->curr_delay-- > 0)
                             goto ignore_event;
 
                         v->act_key = v->repeat_key;
