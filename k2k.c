@@ -15,7 +15,7 @@
 #define KEY_PAIR(key) { KEY_LEFT##key, KEY_RIGHT##key }
 
 #ifdef VERBOSE
-# define dbgprintf(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
+# define dbgprintf(msg, ...) fprintf(stderr, msg"\n", ##__VA_ARGS__)
 #else
 # define dbgprintf(msg, ...) ((void)0)
 #endif
@@ -111,8 +111,9 @@ static struct tap_rule_info {
     int const hold_key; /** Act as this key when pressed with others. */
     int const repeat_key; /** Act as this key when pressed alone for longer
                             time. Optional. */
-    int const repeat_delay;/** Wait this much repeat events to arrive after
-                             acting as repeat key. */
+    int const repeat_delay; /** Wait this much repeat events to arrive after
+                              acting as repeat key. */
+    int const tap_mods; /** Whether to modifier keys apply to `tap_key`. */
     int act_key; /** How `base_key` acts as actually. */
     int curr_delay; /** Internal counter for `repeat_delay`. */
 } TAP_RULES[] = {
@@ -136,7 +137,7 @@ main(void) {
         for (i = 0; i < ARRAY_LEN(MAP_RULES); ++i) {
             struct map_rule_info *const v = &MAP_RULES[i];
             if (ev.code == v->from_key) {
-                dbgprintf("Map rule #%zu: %d -> %d.\n", i, ev.code, v->to_key);
+                dbgprintf("Map rule #%zu: %d -> %d.", i, ev.code, v->to_key);
                 ev.code = v->to_key;
             }
         }
@@ -148,7 +149,7 @@ main(void) {
                 switch (ev.value) {
                 case EVENT_VALUE_KEYDOWN:
                     if (v->act_key == KEY_RESERVED) {
-                        dbgprintf("Tap rule #%zu: Ignore: Waiting.\n", i);
+                        dbgprintf("Tap rule #%zu: Ignore: Waiting.", i);
                         v->act_key = -1;
                         v->curr_delay = v->repeat_delay;
                     }
@@ -163,7 +164,7 @@ main(void) {
                             goto ignore_event;
 
                         v->act_key = v->repeat_key;
-                        dbgprintf("Tap rule #%zu: Act as repeat key.\n", i);
+                        dbgprintf("Tap rule #%zu: Act as repeat key.", i);
                         write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
 
@@ -172,7 +173,7 @@ main(void) {
                 case EVENT_VALUE_KEYUP:
                     if (v->act_key == -1) {
                         v->act_key = v->tap_key;
-                        dbgprintf("Tap rule #%zu: Act as tap key.\n", i);
+                        dbgprintf("Tap rule #%zu: Act as tap key.", i);
                         write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
                     ev.code = v->act_key;
@@ -182,9 +183,9 @@ main(void) {
                 }
             } else if (v->act_key == -1) {
                 /* Key `hold_key` needs to be hold down now. */
-                if (ev.value == EVENT_VALUE_KEYDOWN && !key_ismod(ev.code)) {
+                if (ev.value == EVENT_VALUE_KEYDOWN && (!key_ismod(ev.code) || !v->tap_mods)) {
                     v->act_key = v->hold_key;
-                    dbgprintf("Tap rule #%zu: Act as hold key.\n", i);
+                    dbgprintf("Tap rule #%zu: Act as hold key.", i);
                     write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                 }
             }
@@ -218,7 +219,7 @@ main(void) {
             }
 
             if (ndown > 0)
-                dbgprintf("Toggle rule #%zu: %zu down%s.\n",
+                dbgprintf("Toggle rule #%zu: %zu down%s.",
                         i, ndown,
                         (v->ignore_change ? ", ignore change" : ""));
 
@@ -229,7 +230,7 @@ main(void) {
                 int const*const keys = v->actions[!v->is_down];
 
                 v->ignore_change = 1, v->is_down ^= 1;
-                dbgprintf("Toggle rule #%zu: Toggled %s now.\n", i, (v->is_down ? "down" : "up"));
+                dbgprintf("Toggle rule #%zu: Toggled %s now.", i, (v->is_down ? "down" : "up"));
 
                 for (j = 0; j < ntotal; ++j) {
                     if (keys[0] == v->keys[j]
