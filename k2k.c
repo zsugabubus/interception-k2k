@@ -15,7 +15,7 @@
 #define KEY_PAIR(key) { KEY_LEFT##key, KEY_RIGHT##key }
 
 #ifdef VERBOSE
-# define dbgprintf(msg, ...) fprintf(stderr, msg"\n", ##__VA_ARGS__)
+# define dbgprintf(msg, ...) fprintf(stderr, msg "\n", ##__VA_ARGS__)
 #else
 # define dbgprintf(msg, ...) ((void)0)
 #endif
@@ -26,36 +26,57 @@ enum event_values {
     EVENT_VALUE_KEYREPEAT = 2,
 };
 
-static int
-input_event_wait(struct input_event *ev) {
+#define MAX_EVENTS 10
+
+static struct input_event revbuf[MAX_EVENTS];
+static size_t revlen = 0;
+static size_t riev = 0;
+static struct input_event wevbuf[MAX_EVENTS];
+static size_t wevlen = 0;
+
+static void
+read_events(void) {
     for (;;) {
-        switch (read(STDIN_FILENO, ev, sizeof *ev)) {
-        case sizeof *ev:
-            return 1;
+        switch ((revlen = read(STDIN_FILENO, revbuf, sizeof revbuf))) {
         case -1:
             if (errno == EINTR)
                 continue;
             /* Fall through. */
+        case 0:
+            exit(EXIT_FAILURE);
         default:
-            return 0;
+            revlen /= sizeof *revbuf, riev = 0;
+            dbgprintf("[ Read %lu events. ]", revlen);
+            return;
         }
     }
 }
 
 static void
-write_event(struct input_event const*ev) {
+write_events(void) {
+    if (0 == wevlen)
+        return;
+
+    dbgprintf("[ Write %lu events. ]", wevlen);
+
     for (;;) {
-        switch (write(STDOUT_FILENO, ev, sizeof *ev)) {
-        case sizeof *ev:
-            return;
+        switch (write(STDOUT_FILENO, wevbuf, sizeof *wevbuf * wevlen)) {
         case -1:
             if (errno == EINTR)
                 continue;
-            /* Fall through. */
-        default:
             exit(EXIT_FAILURE);
+        default:
+            wevlen = 0;
+            return;
         }
     }
+}
+
+static void
+write_event(struct input_event const *ev) {
+    wevbuf[wevlen++] = *ev;
+    if (wevlen == MAX_EVENTS)
+        write_events();
 }
 
 static void
@@ -122,10 +143,15 @@ static struct tap_rule_info {
 
 int
 main(void) {
-    struct input_event ev;
-
-    while (input_event_wait(&ev)) {
+    for (;;) {
         size_t i;
+        struct input_event ev;
+
+        if (riev == revlen) {
+            write_events();
+            read_events();
+        }
+        ev = revbuf[riev++];
 
         if (ev.type != EV_KEY) {
             if (ev.type == EV_MSC && ev.code == MSC_SCAN)
