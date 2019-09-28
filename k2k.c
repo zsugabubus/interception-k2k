@@ -90,7 +90,7 @@ static struct map_rule_info {
 
 static struct toggle_rule_info {
     int const keys[TOGGLE_RULE_MAXKEYS]; /** Keys to watch. */
-    int const actions[2][2]; /** Up & down actinons to take when toggled down
+    int const actions[2][2]; /** Up & down actions to take when toggled down
                                and up. */
     size_t const ntoggle_down; /** Number of `keys` to press to toggle down.
                                  Defaults to count of `keys`. */
