@@ -10,7 +10,7 @@ $(TARGET): k2k.c map-rules.h.in toggle-rules.h.in tap-rules.h.in
 
 .PHONY: clean
 clean:
-	rm $(TARGET)
+	rm -f $(TARGET)
 
 .PHONY: install
 install:
