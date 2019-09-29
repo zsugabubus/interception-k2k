@@ -160,6 +160,7 @@ main(void) {
     for (;;) {
         int i;
         struct input_event ev;
+        int ignore_event;
 
         if (riev == revlen) {
             /* Flush events to be written. */
@@ -239,7 +240,7 @@ main(void) {
             }
         }
 
-        int ignore_event = 0;
+        ignore_event = 0;
         for (i = 0; i < ARRAY_LEN(MULTI_RULES); ++i) {
             struct multi_rule_info *const v = &MULTI_RULES[i];
             int j, ndown = 0, ntotal;
