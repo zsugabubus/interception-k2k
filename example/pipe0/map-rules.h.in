@@ -1,1 +1,2 @@
 /* { .from_key = KEY_CAPSLOCK, .to_key = KEY_LEFTCTRL }, */
+/* vi:set ft=c: */

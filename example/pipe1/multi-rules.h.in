@@ -1,0 +1,9 @@
+/* Poor man's media keys. */
+{ .keys = { KEY_LEFTMETA, KEY_F8 }, PRESS_ONCE(KEY_MUTE), .nhold = {2, 2} },
+{ .keys = { KEY_LEFTMETA, KEY_F9 }, PRESS(KEY_VOLUMEDOWN), .nhold = {2, 2} },
+{ .keys = { KEY_LEFTMETA, KEY_F10 }, PRESS_ONCE(KEY_VOLUMEUP), .nhold = {2, 2} },
+
+{ .keys = { KEY_LEFTMETA, KEY_LEFTCTRL, KEY_PAGEDOWN }, PRESS_ONCE(KEY_MUTE), .nhold = {3, 3} },
+{ .keys = { KEY_LEFTMETA, KEY_PAGEDOWN }, PRESS(KEY_VOLUMEDOWN), .nhold = {2, 2} },
+{ .keys = { KEY_LEFTMETA, KEY_PAGEUP }, PRESS_ONCE(KEY_VOLUMEUP), .nhold = {2, 2} },
+/* vi:set ft=c: */

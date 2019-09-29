@@ -5,13 +5,10 @@
 #include <stdlib.h> /* EXIT_FAILURE */
 #include <errno.h> /* errno */
 #include <unistd.h> /* STD*_FILENO, read() */
-#include <linux/input.h> /* struct input_event */
+#include <string.h> /* memcpy() */
+#include <linux/input.h> /* KEY_*, struct input_event */
 
-#ifndef TOGGLE_RULE_MAXKEYS
-# define TOGGLE_RULE_MAXKEYS 10
-#endif
-
-#define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
+#define ARRAY_LEN(a) (int)(sizeof(a) / sizeof(*a))
 #define KEY_PAIR(key) { KEY_LEFT##key, KEY_RIGHT##key }
 
 #ifdef VERBOSE
@@ -46,7 +43,6 @@ read_events(void) {
             exit(EXIT_FAILURE);
         default:
             revlen /= sizeof *revbuf, riev = 0;
-            dbgprintf("[ Read %lu events. ]", revlen);
             return;
         }
     }
@@ -56,8 +52,6 @@ static void
 write_events(void) {
     if (0 == wevlen)
         return;
-
-    dbgprintf("[ Write %lu events. ]", wevlen);
 
     for (;;) {
         switch (write(STDOUT_FILENO, wevbuf, sizeof *wevbuf * wevlen)) {
@@ -75,6 +69,7 @@ write_events(void) {
 static void
 write_event(struct input_event const *ev) {
     wevbuf[wevlen++] = *ev;
+    /* Flush events if buffer is full. */
     if (wevlen == MAX_EVENTS)
         write_events();
 }
@@ -102,6 +97,7 @@ key_ismod(int const keycode) {
     }
 }
 
+/** Map a key to another. */
 static struct map_rule_info {
     int const from_key; /** Map what? */
     int const to_key; /** To what? */
@@ -109,23 +105,7 @@ static struct map_rule_info {
 #include "map-rules.h.in"
 };
 
-static struct toggle_rule_info {
-    int const keys[TOGGLE_RULE_MAXKEYS]; /** Keys to watch. */
-    int const actions[2][2]; /** Up & down actions to take when toggled down
-                               and up. */
-    size_t const ntoggle_down; /** Number of `keys` to press to toggle down.
-                                 Defaults to count of `keys`. */
-    size_t const ntoggle_up; /** Number of `keys` to press to toggle up.
-                               Defaults to count of `keys`. */
-    char keys_down[TOGGLE_RULE_MAXKEYS]; /** Array that keeps counting pressed
-                                           down `keys`. */
-    int is_down: 1; /** Internal toggled state. */
-    int ignore_change: 1; /** Whether to ignore state changings until all
-                            `keys` are up. */
-} TOGGLE_RULES[] = {
-#include "toggle-rules.h.in"
-};
-
+/** Bind multiple actions to a single key. */
 static struct tap_rule_info {
     int const base_key; /** Key to override. */
     int const tap_key; /** Act as this key when pressed alone. */
@@ -135,20 +115,56 @@ static struct tap_rule_info {
     int const repeat_delay; /** Wait this much repeat events to arrive after
                               acting as repeat key. */
     int const tap_mods; /** Whether to modifier keys apply to `tap_key`. */
+
     int act_key; /** How `base_key` acts as actually. */
     int curr_delay; /** Internal counter for `repeat_delay`. */
 } TAP_RULES[] = {
 #include "tap-rules.h.in"
 };
 
+/** Bind actions to multiple keys. */
+static struct multi_rule_info {
+    int const keys[8]; /** Keys to watch. */
+    int const down_press[2]; /** Press first key and release second key when
+                               toggled down. */
+    int const up_press[2]; /** Press first key and release second key when
+                             toggled up. */
+    int const nhold[2]; /** Specifies how much keys must be hold to stay in
+                          toggled down state. */
+
+    unsigned keys_down; /** Current state of `keys`. */
+    int repeated_key; /** What key to override. */
+    int repeating_key; /** A key that surely repeating now. */
+    int is_down: 1; /** Internal toggled state. */
+    int was_down: 1; /** Internal repeating state. */
+    int repeated_key_repeated: 1; /** Internal repeating state. */
+} MULTI_RULES[] = {
+/* Press `key` both when toggled down and toggled up. */
+#define SWITCH(key) .down_press = { (key), (key) }, .up_press = { (key), (key) }
+/* Press down when toggled down and release only when toggled up. */
+#define TOGGLE(key) .down_press = { (key), KEY_RESERVED }, .up_press = { KEY_RESERVED, (key) }
+/* Press key once, only when toggled down. */
+#define PRESS_ONCE(key) .down_press = { (key), (key) }, .up_press = { KEY_RESERVED, KEY_RESERVED }
+#define PRESS TOGGLE
+#define TO_KEY TOGGLE
+#include "multi-rules.h.in"
+#undef TO_KEY
+#undef PRESS
+#undef PRESS_ONCE
+#undef TOGGLE
+#undef SWITCH
+};
+
 int
 main(void) {
     for (;;) {
-        size_t i;
+        int i;
         struct input_event ev;
 
         if (riev == revlen) {
+            /* Flush events to be written. */
             write_events();
+            /* Read new events. */
             read_events();
         }
         ev = revbuf[riev++];
@@ -163,8 +179,14 @@ main(void) {
         for (i = 0; i < ARRAY_LEN(MAP_RULES); ++i) {
             struct map_rule_info *const v = &MAP_RULES[i];
             if (ev.code == v->from_key) {
-                dbgprintf("Map rule #%zu: %d -> %d.", i, ev.code, v->to_key);
-                ev.code = v->to_key;
+                if (v->to_key != KEY_RESERVED) {
+                    dbgprintf("Map rule #%d: %d -> %d.", i, ev.code, v->to_key);
+                    ev.code = v->to_key;
+                    break;
+                } else {
+                    dbgprintf("Map rule #%d: %d -> (ignore).", i, ev.code);
+                    goto ignore_event;
+                }
             }
         }
 
@@ -175,7 +197,7 @@ main(void) {
                 switch (ev.value) {
                 case EVENT_VALUE_KEYDOWN:
                     if (v->act_key == KEY_RESERVED) {
-                        dbgprintf("Tap rule #%zu: Ignore: Waiting.", i);
+                        dbgprintf("Tap rule #%d: Ignore: Waiting.", i);
                         v->act_key = -1;
                         v->curr_delay = v->repeat_delay;
                     }
@@ -190,7 +212,7 @@ main(void) {
                             goto ignore_event;
 
                         v->act_key = v->repeat_key;
-                        dbgprintf("Tap rule #%zu: Act as repeat key.", i);
+                        dbgprintf("Tap rule #%d: Act as repeat key.", i);
                         write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
 
@@ -199,7 +221,7 @@ main(void) {
                 case EVENT_VALUE_KEYUP:
                     if (v->act_key == -1) {
                         v->act_key = v->tap_key;
-                        dbgprintf("Tap rule #%zu: Act as tap key.", i);
+                        dbgprintf("Tap rule #%d: Act as tap key.", i);
                         write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                     }
                     ev.code = v->act_key;
@@ -211,76 +233,99 @@ main(void) {
                 /* Key `hold_key` needs to be hold down now. */
                 if (ev.value == EVENT_VALUE_KEYDOWN && (!key_ismod(ev.code) || !v->tap_mods)) {
                     v->act_key = v->hold_key;
-                    dbgprintf("Tap rule #%zu: Act as hold key.", i);
+                    dbgprintf("Tap rule #%d: Act as hold key.", i);
                     write_key_event(v->act_key, EVENT_VALUE_KEYDOWN);
                 }
             }
         }
 
-        for (i = 0; i < ARRAY_LEN(TOGGLE_RULES); ++i) {
-            struct toggle_rule_info *const v = &TOGGLE_RULES[i];
-            size_t j, ndown = 0, ntotal = 0;
-            int ignore_event = 0;
+        int ignore_event = 0;
+        for (i = 0; i < ARRAY_LEN(MULTI_RULES); ++i) {
+            struct multi_rule_info *const v = &MULTI_RULES[i];
+            int j, ndown = 0, ntotal;
+            int key_matches = 0;
 
-            for (j = 0; j < ARRAY_LEN(v->keys); ++ntotal, ++j) {
-                if (v->keys[j] == KEY_RESERVED)
-                    break;
-
+            for (j = 0; j < ARRAY_LEN(v->keys) && v->keys[j] != KEY_RESERVED; ++j) {
                 if (ev.code == v->keys[j]) {
+                    key_matches = 1;
+                    if (v->repeated_key == ev.code)
+                        v->repeated_key = KEY_RESERVED;
+
                     switch (ev.value) {
                     case EVENT_VALUE_KEYUP:
-                        v->keys_down[j] = 0;
-                        if (v->actions[0][0] == ev.code && v->is_down)
-                            ignore_event = 1;
+                        v->keys_down &= ~(1 << j);
+                        break;
+                    case EVENT_VALUE_KEYREPEAT:
+                        if (v->repeated_key == KEY_RESERVED || v->repeated_key == ev.code) {
+                            v->repeated_key_repeated = 1;
+                            v->repeated_key = ev.code;
+                        } else if (!v->repeated_key_repeated && v->repeating_key == ev.code) {
+                            v->repeated_key_repeated = 1;
+                            v->repeated_key = ev.code;
+                            dbgprintf("Multi rule #%d: Repeating key changed.", i);
+                        } else {
+                            v->repeated_key_repeated = 0;
+                            v->repeating_key = ev.code;
+                        }
                         break;
                     case EVENT_VALUE_KEYDOWN:
-                    case EVENT_VALUE_KEYREPEAT:
-                        v->keys_down[j] = 1;
-                        if (v->actions[1][1] == ev.code && v->is_down)
-                            ignore_event = 1;
+                        v->keys_down |= 1 << j;
                         break;
                     }
                 }
-                ndown += v->keys_down[j];
+                ndown += (v->keys_down >> j) & 1;
             }
+            ntotal = j;
 
-            if (ndown > 0)
-                dbgprintf("Toggle rule #%zu: %zu down%s.",
-                        i, ndown,
-                        (v->ignore_change ? ", ignore change" : ""));
+            v->was_down = v->is_down;
+            v->is_down = !v->is_down
+                ? ndown == ntotal
+                : v->nhold[0] <= ndown && ndown <= v->nhold[1];
 
-            if (!v->ignore_change
-                && ndown == (v->is_down
-                    ? (v->ntoggle_up   > 0 ? v->ntoggle_up   : ntotal)
-                    : (v->ntoggle_down > 0 ? v->ntoggle_down : ntotal))) {
-                int const*const keys = v->actions[!v->is_down];
+            if (v->was_down != v->is_down) {
+                int press[2];
+                memcpy(press, v->is_down ? v->down_press : v->up_press, sizeof press);
 
-                v->ignore_change = 1, v->is_down ^= 1;
-                dbgprintf("Toggle rule #%zu: Toggled %s now.", i, (v->is_down ? "down" : "up"));
+                dbgprintf("Multi rule #%d: Toggled %s.", i, (v->is_down ? "down" : "up"));
 
                 for (j = 0; j < ntotal; ++j) {
-                    if (keys[0] == v->keys[j]
-                        || keys[1] == v->keys[j]) {
-                        goto filtered;
+                    if ((v->keys_down >> j) & 1) {
+                        /* Do not send release event if we will press it immediately (and vica-versa). */
+                        if (press[!v->is_down] == v->keys[j]) {
+                            press[!v->is_down] = KEY_RESERVED;
+                            continue;
+                        }
+                        write_key_event(v->keys[j], v->is_down ? EVENT_VALUE_KEYUP : EVENT_VALUE_KEYDOWN);
                     }
                 }
 
-                if (keys[0] != KEY_RESERVED)
-                    write_key_event(keys[0], EVENT_VALUE_KEYDOWN);
+                if (press[0] != KEY_RESERVED)
+                    write_key_event(press[0], EVENT_VALUE_KEYDOWN);
 
-                if (keys[1] != KEY_RESERVED)
-                    write_key_event(keys[1], EVENT_VALUE_KEYUP);
-            filtered:;
-            } else if (ndown == 0) {
-                v->ignore_change = 0;
+                if (press[1] != KEY_RESERVED)
+                    write_key_event(press[1], EVENT_VALUE_KEYUP);
+
+                ignore_event = 1;
+            } else if (v->is_down
+                    && ev.code == v->repeated_key
+                    && v->down_press[0] != KEY_RESERVED && v->down_press[1] == KEY_RESERVED
+                    && v->up_press[0]   == KEY_RESERVED && v->up_press[1]   == v->down_press[0]) {
+                dbgprintf("Multi rule #%d: Repeat.", i);
+                ev.code = v->down_press[0];
+            } else {
+                if (key_matches && v->is_down) {
+                    dbgprintf("Multi rule #%d: Ignore matched key.", i);
+                    ignore_event = 1;
+                }
+
             }
-
-            if (ignore_event)
-                goto ignore_event;
         }
+        if (ignore_event)
+            goto ignore_event;
 
     write:
         write_event(&ev);
     ignore_event:;
     }
 }
+/* vi:set ft=c: */

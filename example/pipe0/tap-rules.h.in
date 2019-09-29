@@ -1,2 +1,3 @@
 { .base_key = KEY_CAPSLOCK, .tap_key = KEY_ESC, .repeat_key = KEY_LEFTCTRL, .hold_key = KEY_LEFTCTRL },
 { .base_key = KEY_SPACE, .tap_key = KEY_SPACE, .repeat_key = KEY_LEFTMETA, .hold_key = KEY_LEFTMETA },
+/* vi:set ft=c: */
