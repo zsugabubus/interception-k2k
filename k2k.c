@@ -278,6 +278,9 @@ main(void) {
             }
             ntotal = j;
 
+            if (key_matches)
+                dbgprintf("Multi rule #%d: %d down.", i, ndown);
+
             v->was_down = v->is_down;
             v->is_down = !v->is_down
                 ? ndown == ntotal
