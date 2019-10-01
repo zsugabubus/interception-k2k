@@ -25,6 +25,7 @@ clean:
 
 .PHONY: install
 install:
+	# If you have run `make test` then do not forget to run `make clean` after. Otherwise you may install with debug logs on.
 	install -D --strip -t /opt/interception $(TARGETS)
 
 .PHONY: test

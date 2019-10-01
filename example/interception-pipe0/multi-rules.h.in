@@ -1,8 +1,8 @@
 /* Switch Control-lock when both Control are down. */
-{ .keys = KEY_PAIR(CTRL), TOGGLE(KEY_LEFTCTRL), .nhold = {0, 1} },
-{ .keys = KEY_PAIR(META), TOGGLE(KEY_LEFTMETA), .nhold = {0, 1} },
+{ .keys = KEY_PAIR(CTRL), PRESS(KEY_LEFTCTRL), BOTH_DOWN_ONE_UP() },
+{ .keys = KEY_PAIR(META), PRESS(KEY_LEFTMETA), BOTH_DOWN_ONE_UP() },
 /* Switch CapsLock when both Shift are down. */
-{ .keys = KEY_PAIR(SHIFT), SWITCH(KEY_CAPSLOCK), .nhold = {0, 1} },
+{ .keys = KEY_PAIR(SHIFT), PRESS_ON_TOGGLE(KEY_CAPSLOCK), BOTH_DOWN_ONE_UP() },
 
-{ .keys = { KEY_LEFTMETA, KEY_F1 }, TOGGLE(KEY_SLEEP), .nhold = {2, 2} },
+{ .keys = { KEY_LEFTMETA, KEY_F1 }, PRESS_ON_UP(KEY_SLEEP), DOWN_IFF_ALL_DOWN(2) },
 /* vi:set ft=c: */
