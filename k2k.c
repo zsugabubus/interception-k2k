@@ -148,23 +148,38 @@ static struct multi_rule_info {
     int repeated_key; /** Which key to override for a repeat action. */
     int repeating_key; /** The key that we saw last time to repeating. */
 } MULTI_RULES[] = {
-#define PRESS_ON_TOGGLE(key) .down_press = { (key), (key) }, .up_press = { (key), (key) }
-#define TO_KEY(key) .down_press = { (key), KEY_RESERVED }, .up_press = { KEY_RESERVED, (key) }
-#define PRESS_ON_DOWN(key) .down_press = { (key), (key) }, .up_press = { KEY_RESERVED, KEY_RESERVED }
-#define PRESS_ON_UP(key) .down_press = { KEY_RESERVED, KEY_RESERVED }, .up_press = { (key), (key) }
-#define PRESS_ONCE(key) PRESS_ON_DOWN
-#define PRESS TO_KEY
+/* Press `key` when toggled down and once again when toggled up. */
+#define PRESS_ON_TOGGLE(key) .down_press = { (key),               (key) }, .up_press = { (key),               (key) }
+/* Act as `key`. */
+#define TO_KEY(key)          .down_press = { (key),        KEY_RESERVED }, .up_press = { KEY_RESERVED,        (key) }
+/* Press `key` once when toggled down. */
+#define PRESS_ON_DOWN(key)   .down_press = { (key),               (key) }, .up_press = { KEY_RESERVED, KEY_RESERVED }
+/* Press `key` once when toggled up. */
+#define PRESS_ON_UP(key)     .down_press = { KEY_RESERVED, KEY_RESERVED }, .up_press = {        (key),        (key) }
+/* Press once. */
+#define PRESS_ONCE(key)      PRESS_ON_DOWN
+/* Synonym for `TO_KEY`. */
+#define PRESS                TO_KEY
 
-/* As stated above negative values mean inequality, so:
+/* Toggle down when all `keys` are down and toggle up as soon as not all `keys`
+ * are down. `nkeys` need to specify the number of `keys` for technical
+ * limitations. This is the most natural behavior, so you probably will need
+ * this the most time.
+ *
+ * Explanation:
+ * As stated above negative values mean inequality, so:
  * - nbeforedown: Allow toggling down when not all keys are down, it's just a
  *   no-op.
  * - (ndown): Toggle down when all keys are down. (Implicit rule.)
  * - nbeforeup: Allow toggling up immediately after we have released some of
  *   the keys.
- * - nup: When we don't press down all keys toggle up.
+ * - nup: As soon as we don't press down all keys, toggle up.
  */
 #define DOWN_IFF_ALL_DOWN(nkeys) .nbeforedown = -(nkeys), .nbeforeup = -(nkeys), .nup = -(nkeys)
-/* - nbeforedown: No-op.
+/* Toggling for lock keys.
+ *
+ * Explanation:
+ * - nbeforedown: Act as a no-op.
  * - nbeforeup: Allow toggling up after we have released all keys. We need this
  *   because to toggle down you have to press both keys, but if toggle up is
  *   set to one key then it would toggle up immediately as you release any of
@@ -176,8 +191,6 @@ static struct multi_rule_info {
 #define BOTH_DOWN_ONE_UP() .nbeforedown = -2, .nbeforeup = 0, .nup = 1
 
 #include "multi-rules.h.in"
-#undef INTO_KEY
-
 #undef BOTH_DOWN_ONE_UP
 #undef DOWN_IFF_ALL_DOWN
 
