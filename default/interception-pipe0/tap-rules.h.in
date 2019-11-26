@@ -14,7 +14,22 @@
 /* }}} */
 
 /* Vim overlay {{{ */
-{ TAP(KEY_I), .action_key = KEY_B, .hold_key = KEY_BACKSPACE, .tap_typing = 1 },
-{ TAP(KEY_I), .action_key = KEY_G, .hold_key = KEY_INSERT,    .tap_typing = 1 },
+#define KEY_VIML KEY_E
+#define KEY_VIMR KEY_I
+    { TAP(KEY_VIMR), .action_key = KEY_B/*X*/,         .hold_key = KEY_DELETE,    .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_H/*D*/,         .hold_key = KEY_BACKSPACE, .tap_typing = 1 }, \
+    { TAP(KEY_VIMR), .action_key = KEY_G/*I*/,         .hold_key = KEY_INSERT,    .tap_typing = 1 }, \
+    { TAP(KEY_VIMR), .action_key = KEY_V/*K*/,         .hold_key = KEY_UP,        .tap_typing = 1 }, \
+    { TAP(KEY_VIMR), .action_key = KEY_C/*J*/,         .hold_key = KEY_DOWN,      .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_J/*H*/,         .hold_key = KEY_LEFT,      .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_P/*L*/,         .hold_key = KEY_RIGHT,     .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_Z/*F*/,         .hold_key = KEY_PAGEUP,    .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_N/*B*/,         .hold_key = KEY_PAGEDOWN,  .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_U/*g*/,         .hold_key = KEY_HOME,      .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_M/*G*/,         .hold_key = KEY_END,       .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_R/*P*/,         .hold_key = KEY_PRINT,     .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_SEMICOLON/*S*/, .hold_key = KEY_PAUSE,     .tap_typing = 1 },
+#undef KEY_VIML
+#undef KEY_VIMR
 /* }}} */
 /* vi:set ft=c: */
