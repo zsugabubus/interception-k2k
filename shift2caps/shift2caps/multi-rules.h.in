@@ -1,0 +1,2 @@
+{ .keys = KEY_PAIR(SHIFT), PRESS_ON_TOGGLE(KEY_CAPSLOCK), BOTH_DOWN_ONE_UP() },
+/* vi:set ft=c: */
