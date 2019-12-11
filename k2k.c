@@ -249,6 +249,9 @@ should_check_typing(void) {
 static void
 write_event(struct input_event const *e) {
     if (e->type == EV_KEY) {
+#if 0
+        dbgprintf("<   Code: %3d Value: %d", e->code, e->value);
+#endif
         matrix[e->code] = e->value;
         if (should_check_typing()) {
             if (!is_typing && e->value == EVENT_VALUE_KEYUP && !key_ismod(e->code)) {
@@ -319,7 +322,7 @@ main(void) {
         }
 
 #if 0
-        dbgprintf("Code: %3d Value: %d", e.code, e.value);
+        dbgprintf("  > Code: %3d Value: %d", e.code, e.value);
 #endif
 
         for (i = 0; i < ARRAY_LEN(MAP_RULES); ++i) {
@@ -380,17 +383,17 @@ main(void) {
                         /* Do nothing. */
                         break;
                     case -1:
+                        /* Always ignore if we haven't decided what key it
+                         * should be. */
+                        ignore = 1;
+
                         /* Do not repeat this key. */
-                        if (v->repeat_key == KEY_RESERVED) {
-                            ignore = 1;
+                        if (v->repeat_key == KEY_RESERVED)
                             continue;
-                        }
 
                         /* Wait for more key repeats. */
-                        if (v->curr_delay-- > 0) {
-                            ignore = 1;
+                        if (v->curr_delay-- > 0)
                             continue;
-                        }
 
                         /* Timeout reached, act as repeat key. */
                         dbgprintf("Tap rule #%d: Repeated.", i);
