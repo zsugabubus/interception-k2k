@@ -1,7 +1,7 @@
 CFLAGS += -std=c99 -O3 -Wall -Wextra -Werror -Wno-type-limits
 TIMEOUT ?= 10
 
-CONFIG_DIR := default
+CONFIG_DIR ?= default
 OUT_DIR := out
 INSTALL_DIR := /opt/interception
 
