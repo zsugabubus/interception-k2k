@@ -233,11 +233,24 @@ flush_events(void) {
     }
 }
 
+__attribute__((const))
+static int
+should_check_typing(void) {
+    int i;
+
+    for (i = 0; i < ARRAY_LEN(TAP_RULES); ++i) {
+        struct tap_rule *const v = &TAP_RULES[i];
+        if (v->tap_typing)
+            return 1;
+    }
+    return 0;
+}
+
 static void
 write_event(struct input_event const *e) {
     if (e->type == EV_KEY) {
         matrix[e->code] = e->value;
-        if (ARRAY_LEN(TAP_RULES) > 0) {
+        if (should_check_typing()) {
             if (!is_typing && e->value == EVENT_VALUE_KEYUP && !key_ismod(e->code)) {
                 is_typing = 1;
                 clock_gettime(TYPING_CLOCK_SOURCE, &last_typing);
@@ -305,6 +318,10 @@ main(void) {
             goto write;
         }
 
+#if 0
+        dbgprintf("Code: %3d Value: %d", e.code, e.value);
+#endif
+
         for (i = 0; i < ARRAY_LEN(MAP_RULES); ++i) {
             struct map_rule *const v = &MAP_RULES[i];
             if (e.code == v->from_key) {
@@ -320,7 +337,7 @@ main(void) {
         }
 
         /* Check if user is typing. */
-        if (ARRAY_LEN(TAP_RULES) > 0) {
+        if (should_check_typing()) {
             if (is_typing && e.value != EVENT_VALUE_KEYUP) {
                 struct timespec now;
                 clock_gettime(TYPING_CLOCK_SOURCE, &now);
@@ -436,7 +453,7 @@ main(void) {
                 if (v->action_key != KEY_RESERVED)
                     ignore = 1;
                 /* User started typing meanwhile. */
-                if (is_typing && v->tap_typing && !v->was_held) {
+                if ((is_typing && v->tap_typing) && !v->was_held) {
                     dbgprintf("Tap rule #%d: Late tap.", i);
                     v->act_key = v->tap_key;
                     write_key_event(v->tap_key, EVENT_VALUE_KEYDOWN);
