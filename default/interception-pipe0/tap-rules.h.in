@@ -23,7 +23,7 @@
     { TAP(KEY_VIMR), .action_key = KEY_C/*J*/,         .hold_key = KEY_DOWN,      .tap_typing = 1 }, \
     { TAP(KEY_VIML), .action_key = KEY_J/*H*/,         .hold_key = KEY_LEFT,      .tap_typing = 1 }, \
     { TAP(KEY_VIML), .action_key = KEY_P/*L*/,         .hold_key = KEY_RIGHT,     .tap_typing = 1 }, \
-    { TAP(KEY_VIML), .action_key = KEY_Z/*F*/,         .hold_key = KEY_PAGEUP,    .tap_typing = 1 }, \
+    { TAP(KEY_VIML), .action_key = KEY_Y/*F*/,         .hold_key = KEY_PAGEUP,    .tap_typing = 1 }, \
     { TAP(KEY_VIML), .action_key = KEY_N/*B*/,         .hold_key = KEY_PAGEDOWN,  .tap_typing = 1 }, \
     { TAP(KEY_VIML), .action_key = KEY_U/*g*/,         .hold_key = KEY_HOME,      .tap_typing = 1 }, \
     { TAP(KEY_VIML), .action_key = KEY_M/*G*/,         .hold_key = KEY_END,       .tap_typing = 1 }, \
