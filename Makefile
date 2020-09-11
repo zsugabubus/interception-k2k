@@ -3,7 +3,7 @@ TIMEOUT ?= 10
 
 CONFIG_DIR ?= default
 OUT_DIR := out
-INSTALL_DIR := /opt/interception
+INSTALL_DIR ?= /opt/interception
 
 TARGETS := $(addprefix $(OUT_DIR)/,$(notdir $(wildcard $(CONFIG_DIR)/*)))
 
@@ -26,7 +26,7 @@ clean:
 .PHONY: install
 install:
 	# If you have run `make test` then do not forget to run `make clean` after. Otherwise you may install with debug logs on.
-	install -D --strip -t /opt/interception $(TARGETS)
+	install -D --strip -t $(INSTALL_DIR) $(TARGETS)
 
 .PHONY: test
 test:
