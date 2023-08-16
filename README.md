@@ -3,7 +3,7 @@ All-in-one input key mapper for [Interception Tools](https://gitlab.com/intercep
 
 ## Configuration
 
-User configuration files can be placed under subdirectories of `config`
+User configuration files can be placed under subdirectories of `default`
 directory. Executables will be generated per subdirectory, so you can easily
 manage your rules if you need more instances of `interception-k2k`.
 
