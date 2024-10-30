@@ -1,0 +1,11 @@
+/* Home-row modifiers */
+{ TAP(KEY_A),         .repeat_key = KEY_LEFTCTRL,   .hold_key = KEY_LEFTCTRL,   .tap_typing = 1 },
+{ TAP(KEY_S),         .repeat_key = KEY_LEFTALT,    .hold_key = KEY_LEFTALT,    .tap_typing = 1 },
+{ TAP(KEY_D),         .repeat_key = KEY_LEFTMETA,   .hold_key = KEY_LEFTMETA,   .tap_typing = 1 },
+{ TAP(KEY_F),         .repeat_key = KEY_LEFTSHIFT,  .hold_key = KEY_LEFTSHIFT,                  },
+{ TAP(KEY_J),         .repeat_key = KEY_RIGHTSHIFT, .hold_key = KEY_RIGHTSHIFT,                 },
+{ TAP(KEY_K),         .repeat_key = KEY_RIGHTMETA,  .hold_key = KEY_RIGHTMETA,  .tap_typing = 1 },
+{ TAP(KEY_L),         .repeat_key = KEY_RIGHTALT,   .hold_key = KEY_RIGHTALT,   .tap_typing = 1 },
+{ TAP(KEY_SEMICOLON), .repeat_key = KEY_RIGHTCTRL,  .hold_key = KEY_RIGHTCTRL,  .tap_typing = 1 },
+{ TAP(KEY_SPACE),     .repeat_key = KEY_LEFTMETA,   .hold_key = KEY_LEFTMETA,   .tap_typing = 1 },
+/* vi:set ft=c: */
