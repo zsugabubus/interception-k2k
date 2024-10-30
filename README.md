@@ -22,6 +22,10 @@ This maps <kbd>caps lock</kbd> to <kbd>esc</kbd> when tapped and to <kbd>left co
 
 <kbd>control</kbd> locks when both keys are pressed together. The same for <kbd>meta</kbd>.
 
+### disable-keys
+
+This lets you disable certain keys that you have mapped elsewhere, forcing you to adjust to their new location. If you are chaining configurations, make sure you disable first, then add the new mapping.
+
 ### home-row-mods
 
 Mapping <kbd>a</kbd>,<kbd>s</kbd>,<kbd>d</kbd>,<kbd>f</kbd>,<kbd>j</kbd>,<kbd>k</kbd>,<kbd>l</kbd>,<kbd>;</kbd> and <kbd>space</kbd> to <kbd>control</kbd>, <kbd>alt</kbd>, <kbd>meta</kbd> and <kbd>shift</kbd> when held.
@@ -60,10 +64,18 @@ Note that performance-wise it may be a good idea to combine your configurations 
 ```sh
 git clone https://github.com/zsugabubus/interception-k2k &&
 cd interception-k2k &&
-make && # or make CONFIG_DIR=<your new dir>
-make install # or make install INSTALL_DIR=<somewhere else>
+make &&
+make install
 ```
 
 By default `make` builds all configurations in the `examples` directory. Add `CONFIG_DIR=<your new dir>` if you created a new dir that only contains your configurations to prevent `make install` from installing any examples you might not plan on using.
 
 By default `make install` copies the executables to `/opt/interception`. Add `INSTALL_DIR=<somehwere else>` if you want to change that.
+
+All together this may look like:
+
+```sh
+make clean
+make CONFIG_DIR=in
+sudo make install CONFIG_DIR=in INSTALL_DIR=/usr/bin
+```

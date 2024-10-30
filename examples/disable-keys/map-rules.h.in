@@ -1,0 +1,4 @@
+/* Disable keys */
+{ .from_key = KEY_LEFTCTRL, .to_key = KEY_RESERVED },
+{ .from_key = KEY_RIGHTCTRL, .to_key = KEY_RESERVED },
+/* vi:set ft=c: */
