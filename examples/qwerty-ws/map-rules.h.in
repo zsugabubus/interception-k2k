@@ -1,3 +1,4 @@
+/* Qwerty Wide Sym */
 { .from_key = KEY_7, .to_key = KEY_SEMICOLON },
 { .from_key = KEY_8, .to_key = KEY_7 },
 { .from_key = KEY_9, .to_key = KEY_8 },

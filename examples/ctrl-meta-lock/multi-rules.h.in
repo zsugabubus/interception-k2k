@@ -1,0 +1,7 @@
+/* Switch Control-lock when both Control are down, one cancels.
+ *
+ * `PRESS` specifies that Control key needs to be held down during toggled down,
+ * and released when up. Compare with PRESS_ON_TOGGLE in shift2caps. */
+{ .keys = KEY_PAIR(CTRL), PRESS(KEY_LEFTCTRL), BOTH_DOWN_ONE_UP() },
+{ .keys = KEY_PAIR(META), PRESS(KEY_LEFTMETA), BOTH_DOWN_ONE_UP() },
+/* vi:set ft=c: */

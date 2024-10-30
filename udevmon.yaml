@@ -1,4 +1,4 @@
-- JOB: "intercept -g $DEVNODE | /opt/interception/interception-pipe0 | /opt/interception/interception-pipe1 | uinput -d $DEVNODE"
+- JOB: "intercept -g $DEVNODE | /opt/interception/caps2esc | /opt/interception/shift2caps | uinput -d $DEVNODE"
   DEVICE:
     EVENTS:
       EV_KEY: [KEY_CAPSLOCK, KEY_ESC, KEY_SPACE]
