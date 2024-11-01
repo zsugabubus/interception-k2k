@@ -1,4 +1,4 @@
-/* Vim overlay */
+/* Vim overlay for Dvorak */
 #define KEY_VIML KEY_E
 #define KEY_VIMR KEY_I
     { TAP(KEY_VIMR), .action_key = KEY_B/*X*/,         .hold_key = KEY_DELETE,    .tap_typing = 1 }, \
