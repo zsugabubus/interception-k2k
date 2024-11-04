@@ -28,6 +28,10 @@ This contains these distinct setups:
 - Shift2caps, like below.
 - <kbd>left meta</kbd> key combinations as media keys
 
+### qwerty-ws
+
+This remaps the right half of an ANSI laptop keyboard after you have moved around some of its keycaps for a WideSym mod (inspired by [DreymaR's Colemak-CAWS](https://dreymar.colemak.org/ergo-mods.html#symbols)).
+
 ### shift2caps
 
 This toggles <kbd>caps lock</kbd> when both <kbd>shift</kbd> keys are pressed together.
